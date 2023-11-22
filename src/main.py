@@ -13,11 +13,19 @@ from transformers import (
         TextClassificationPipeline,
         )
 
+from .metrics import *
 
-def run_metrics(predictions, targets, metrics_list):
-    logging.info(f'Running metrics {metrics_list}')
+# --- Auxilary functions ---
+def run_metrics(
+        predictions: np.array, 
+        targets: np.array, 
+        metrics: list[string]):
+    ''' call metric functions from src/metrics.py'''
+    logging.info(f'Running metrics {metrics}')
 
 
+
+# --- Click functions ---
 @click.group()
 def cli():
     pass
@@ -36,8 +44,9 @@ def eval_hf():
 
     #Load model
     if model_type == 'classification':
-        model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased")
-
+        model = AutoModelForSequenceClassification.from_pretrained(model)
+    elif model_type == 'seq2seq':
+        raise NotImplementedError
 
     #Load dataset
     dataset = load_dataset(dataset)
@@ -48,8 +57,9 @@ def eval_hf():
     dataset.to(device)
     pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
 
+
     #Call evaluate function with model, dataset, list of metrics
-    
+    run_metrics(predictions, targets, metrics)
 
 @click.command()
 def eval_jax():
