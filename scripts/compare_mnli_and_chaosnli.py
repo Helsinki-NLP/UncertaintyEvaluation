@@ -3,13 +3,15 @@ import pandas as pd
 from datasets import load_dataset
 
 
-mnli_train, mnli_dev_m, mnli_dev_mm = load_dataset('multi_nli', split=['train', 'validation_matched', 'validation_mismatched'], cache_dir='cache')
-chaosnli_test = load_dataset("metaeval/chaos-mnli-ambiguity", split=['train'], cache_dir='cache')
+mnli_train, mnli_dev_m, mnli_dev_mm = load_dataset('multi_nli', split=['train', 'validation_matched', 'validation_mismatched'], cache_dir='../cache')
+chaosnli_test = load_dataset("metaeval/chaos-mnli-ambiguity", split=['train'], cache_dir='../cache')
 
 mnli_train_df = pd.DataFrame(mnli_train)
 mnli_dev_m_df = pd.DataFrame(mnli_dev_m)
 mnli_dev_mm_df = pd.DataFrame(mnli_dev_mm)
 chaosnli_test_df = pd.DataFrame(chaosnli_test)
+
+chaosnli_test_df = chaosnli_test_df.explode('Age')
 
 print(chaosnli_test_df)
 
