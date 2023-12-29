@@ -34,15 +34,21 @@ class TextClassificationUncertaintyPipeline(transformers.pipelines.Pipeline):
         if hasattr(self.model, 'get_logits'):
             return self.model.get_logits(model_inputs["input_ids"], num_predictions=num_predictions)
         outputs = self.model(**model_inputs)
-        logits = outputs['logits'].tile((num_predictions, 1, 1))
-        logits = torch.permute(logits, (1, 0, 2))
-        logger.debug("Transforming logits from %s to %s", outputs['logits'].shape, logits.shape)
+        logits = outputs['logits']
+        if len(logits.shape) == 2:
+            # Expects original shape [batch_size, labels]
+            logits = outputs['logits'].tile((num_predictions, 1, 1))  # [predictions, batch_size, labels]
+            logits = torch.permute(logits, (1, 0, 2))                 # [batch_size, predictions, labels]
+            logger.debug("Transforming logits from %s to %s", outputs['logits'].shape, logits.shape)
         return logits
 
     def postprocess(self, model_outputs):
         logger.debug("Model outputs: %s", model_outputs)
         outputs = model_outputs.numpy()
         scores = softmax(outputs)
+        if len(scores.shape) == 3 and scores.shape[0] == 1:
+            # Extra dimension returned if batch_size = 1
+            scores = scores[0]
         logger.debug("Scores: %s", scores)
         return scores
 
