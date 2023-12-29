@@ -1,3 +1,6 @@
+"""Command-line tools"""
+
+import importlib
 import logging
 
 import click
@@ -6,6 +9,9 @@ import datasets
 
 
 logger = logging.getLogger(__name__)
+
+
+REFERENCE_COLUMN = "label_dist"
 
 
 # --- Click functions ---
@@ -17,43 +23,56 @@ def cli(verbosity: int = 0):
 
 
 @cli.command('hf-text-classifier')
-@click.argument('model', required=True, type=str)
-@click.argument('dataset', required=True, type=str)
+@click.argument('model_path', required=True, type=str)
+@click.argument('dataset_path', required=True, type=str)
 @click.option('--dataset-split', type=str, default='test', help='dataset split to use')
 @click.option('--dataset-limit', type=int, default=None, help='limit to N first data samples')
 @click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
 @click.option('--batch-size', type=int, default=10, help='batch size')
-@click.option('--num-predictions', type=int, default=10, help='maximum number of predictions per sample')
-def hf_text_classification(model, dataset, metrics, dataset_split, dataset_limit, batch_size, num_predictions):
+@click.option('--num-predictions', type=int, default=10,
+              help='maximum number of predictions per sample')
+def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
+                           batch_size, num_predictions):
     # Dynamic imports
-    import transformers
-    from .text_classification import TextClassificationUncertaintyPipeline, \
-        TextClassificationUncertaintyEvaluator
+    transformers = importlib.import_module("transformers")
+    text_classification = importlib.import_module("..text_classification", package=__name__)
 
-    dataset = datasets.load_dataset(dataset, split=dataset_split)
+    dataset = datasets.load_dataset(dataset_path, split=dataset_split)
     if dataset_limit:
         dataset = dataset.select(range(dataset_limit))
     logger.info(dataset)
+    if REFERENCE_COLUMN not in dataset.features:
+        raise ValueError(f"Dataset {dataset_path} does not include '{REFERENCE_COLUMN}' "
+                         "feature required by the evaluation")
+    if "premise" in dataset.features and "hypothesis" in dataset.features:
+        logger.info("NLI task detected")
+        input_column = "premise"
+        second_input_column = "hypothesis"
+    elif "text" in dataset.features:
+        logger.info("Assuming text classification task with single input in 'text'")
+        input_column = "text"
+        second_input_column = None
+    else:
+        raise ValueError(f"Could not determine task from the dataset features {dataset.features}")
 
     metrics = [evaluate.load(metric) for metric in metrics]
-    logger.info(metrics)
+    logger.info("Metrics: %s", [metric.name for metric in metrics])
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model)
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(model)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(model_path)
 
-    pipe = TextClassificationUncertaintyPipeline(
+    pipe = text_classification.TextClassificationUncertaintyPipeline(
         model=model, tokenizer=tokenizer, task='text-classification',
         batch_size=batch_size, num_predictions=num_predictions)
 
-    task_evaluator = TextClassificationUncertaintyEvaluator()
+    task_evaluator = text_classification.TextClassificationUncertaintyEvaluator()
 
     eval_results = task_evaluator.compute(
         model_or_pipeline=pipe,
         data=dataset,
-        input_column="premise",
-        second_input_column="hypothesis",
-        label_mapping={"LABEL_0": 0, "LABEL_1": 1, "LABEL_2": 2},
-        label_column="label_dist",
+        input_column=input_column,
+        second_input_column=second_input_column,
+        label_column=REFERENCE_COLUMN,
         metric=evaluate.combine(metrics),
     )
     print(eval_results)
