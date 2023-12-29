@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 
 class TextClassificationUncertaintyPipeline(transformers.pipelines.Pipeline):
 
-    def _sanitize_parameters(self, num_predictions=10, **tokenizer_kwargs):
+    def _sanitize_parameters(self, num_predictions=None, **tokenizer_kwargs):
         preprocess_params = tokenizer_kwargs
-        forward_params = {'num_predictions': num_predictions}
+        forward_params = {}
         postprocess_params = {}
+        if num_predictions is not None:
+            forward_params['num_predictions'] = num_predictions
         return preprocess_params, forward_params, postprocess_params
 
     def preprocess(self, input_, **tokenizer_kwargs):
@@ -48,5 +50,6 @@ class TextClassificationUncertaintyPipeline(transformers.pipelines.Pipeline):
 class TextClassificationUncertaintyEvaluator(evaluate.TextClassificationEvaluator):
 
     def predictions_processor(self, predictions, label_mapping):
-        logger.debug("Predictions: %s", predictions)
+        logger.debug("Predictions: %s", len(predictions))
+        logger.debug("Predictions shape: %s", predictions[0].shape)
         return {"predictions": predictions}

@@ -22,13 +22,14 @@ def cli(verbosity: int = 0):
 @click.option('--dataset-split', type=str, default='test', help='dataset split to use')
 @click.option('--dataset-limit', type=int, default=None, help='limit to N first data samples')
 @click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
-def hf_text_classification(model, dataset, metrics, dataset_split, dataset_limit):
+@click.option('--num-predictions', type=int, default=10, help='maximum number of predictions per sample')
+def hf_text_classification(model, dataset, metrics, dataset_split, dataset_limit, num_predictions):
     # Dynamic imports
     import transformers
     from .text_classification import TextClassificationUncertaintyPipeline, \
         TextClassificationUncertaintyEvaluator
 
-    dataset = datasets.load_dataset("snli_annotations", split=dataset_split)
+    dataset = datasets.load_dataset(dataset, split=dataset_split)
     if dataset_limit:
         dataset = dataset.select(range(dataset_limit))
     logger.info(dataset)
@@ -40,7 +41,8 @@ def hf_text_classification(model, dataset, metrics, dataset_split, dataset_limit
     model = transformers.AutoModelForSequenceClassification.from_pretrained(model)
 
     pipe = TextClassificationUncertaintyPipeline(
-        model=model, tokenizer=tokenizer, task='text-classification', batch_size=5)
+        model=model, tokenizer=tokenizer, task='text-classification',
+        batch_size=5, num_predictions=num_predictions)
 
     task_evaluator = TextClassificationUncertaintyEvaluator()
 
