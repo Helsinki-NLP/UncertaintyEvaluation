@@ -27,12 +27,14 @@ def cli(verbosity: int = 0):
 @click.argument('dataset_path', required=True, type=str)
 @click.option('--dataset-split', type=str, default='test', help='dataset split to use')
 @click.option('--dataset-limit', type=int, default=None, help='limit to N first data samples')
+@click.option('--dataset-column', type=str, default=REFERENCE_COLUMN,
+              help='dataset column for reference label distribution')
 @click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
 @click.option('--batch-size', type=int, default=10, help='batch size')
 @click.option('--num-predictions', type=int, default=10,
-              help='maximum number of predictions per sample')
+              help='requested number of predictions per sample (may be resticted by the model)')
 def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
-                           batch_size, num_predictions):
+                           dataset_column, batch_size, num_predictions):
     # Dynamic imports
     transformers = importlib.import_module("transformers")
     text_classification = importlib.import_module("..text_classification", package=__name__)
@@ -41,9 +43,8 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
     if dataset_limit:
         dataset = dataset.select(range(dataset_limit))
     logger.info(dataset)
-    if REFERENCE_COLUMN not in dataset.features:
-        raise ValueError(f"Dataset {dataset_path} does not include '{REFERENCE_COLUMN}' "
-                         "feature required by the evaluation")
+    if dataset_column not in dataset.features:
+        raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
     if "premise" in dataset.features and "hypothesis" in dataset.features:
         logger.info("NLI task detected")
         input_column = "premise"
@@ -67,12 +68,13 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
 
     task_evaluator = text_classification.TextClassificationUncertaintyEvaluator()
 
+    logger.info("Computing and evaluating predictions")
     eval_results = task_evaluator.compute(
         model_or_pipeline=pipe,
         data=dataset,
         input_column=input_column,
         second_input_column=second_input_column,
-        label_column=REFERENCE_COLUMN,
+        label_column=dataset_column,
         metric=evaluate.combine(metrics),
     )
     print(eval_results)
