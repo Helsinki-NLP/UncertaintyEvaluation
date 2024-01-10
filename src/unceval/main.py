@@ -55,12 +55,14 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
         second_input_column = None
     else:
         raise ValueError(f"Could not determine task from the dataset features {dataset.features}")
+    num_labels = len(dataset[dataset_column][0])
+    logger.info("Number of labels detected: %s", num_labels)
 
     metrics = [evaluate.load(metric) for metric in metrics]
     logger.info("Metrics: %s", [metric.name for metric in metrics])
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(model_path)
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(model_path, num_labels=num_labels)
 
     pipe = text_classification.TextClassificationUncertaintyPipeline(
         model=model, tokenizer=tokenizer, task='text-classification',
