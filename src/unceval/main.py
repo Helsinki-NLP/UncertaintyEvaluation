@@ -7,8 +7,6 @@ import click
 import evaluate
 import datasets
 
-from unceval import utils
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +29,7 @@ def cli(verbosity: int = 0):
 @click.option('--dataset-limit', type=int, default=None, help='limit to N first data samples')
 @click.option('--dataset-column', type=str, default=REFERENCE_COLUMN,
               help='dataset column for reference label distribution')
-@click.option('--dataset-collapse', 'dataset_collapse', nargs=2, type=str,
+@click.option('--dataset-collapse', 'dataset_collapse', nargs=2, type=str, default=(None, None),
               help=('collapse row-per-annotation dataset for label distribution; '
                     'the arguments are columns for sample identifier and label'))
 @click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
@@ -40,6 +38,7 @@ def cli(verbosity: int = 0):
               help='requested number of predictions per sample (may be resticted by the model)')
 def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
                            dataset_column, dataset_collapse, batch_size, num_predictions):
+    """Run text classification task"""
     # Dynamic imports
     transformers = importlib.import_module("transformers")
     text_classification = importlib.import_module("..text_classification", package=__name__)
@@ -47,31 +46,13 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
     dataset = datasets.load_dataset(dataset_path, split=dataset_split)
     logger.info("Original dataset: %s", dataset)
 
-    if "premise" in dataset.features and "hypothesis" in dataset.features:
-        logger.info("NLI task detected")
-        input_column = "premise"
-        second_input_column = "hypothesis"
-    elif "text" in dataset.features:
-        logger.info("Assuming text classification task with single input in 'text'")
-        input_column = "text"
-        second_input_column = None
-    else:
-        raise ValueError(f"Could not determine task from the dataset features {dataset.features}")
-
-    if dataset_collapse:
-        logger.info("Converting dataset to row per unique value of %s", dataset_collapse[0])
-        dataset, label_indices = utils.collapse_dataset(
-            dataset, input_column, second_input_column, id_column=dataset_collapse[0],
-            label_column=dataset_collapse[1], label_dist_column=dataset_column)
-        logger.info("Label indices: %s", label_indices)
-
-    if dataset_limit:
-        dataset = dataset.select(range(dataset_limit))
-
+    dataset, input_column, second_input_column = text_classification.prepare_dataset(
+        dataset, dataset_limit, dataset_column, dataset_collapse[0], dataset_collapse[1])
     logger.info("Dataset: %s", dataset)
 
     if dataset_column not in dataset.features:
         raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
+
     num_labels = len(dataset[dataset_column][0])
     logger.info("Number of labels detected: %s", num_labels)
 

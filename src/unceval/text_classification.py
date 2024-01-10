@@ -8,8 +8,38 @@ import torch
 import transformers
 from transformers.pipelines.text_classification import softmax
 
+from unceval import utils
+
 
 logger = logging.getLogger(__name__)
+
+
+def prepare_dataset(dataset, dataset_limit, dataset_column, dataset_id_column=None,
+                    dataset_original_label_column=None):
+    """Prepare text classification dataset"""
+
+    if "premise" in dataset.features and "hypothesis" in dataset.features:
+        logger.info("NLI task detected")
+        input_column = "premise"
+        second_input_column = "hypothesis"
+    elif "text" in dataset.features:
+        logger.info("Assuming task with single input in 'text'")
+        input_column = "text"
+        second_input_column = None
+    else:
+        raise ValueError(f"Could not determine task from the dataset features {dataset.features}")
+
+    if dataset_id_column and dataset_original_label_column:
+        logger.info("Converting dataset to have row per unique value of %s", dataset_id_column)
+        dataset, label_indices = utils.collapse_dataset(
+            dataset, input_column, second_input_column, id_column=dataset_id_column,
+            label_column=dataset_original_label_column, label_dist_column=dataset_column)
+        logger.info("Label indices: %s", label_indices)
+
+    if dataset_limit:
+        dataset = dataset.select(range(dataset_limit))
+
+    return dataset, input_column, second_input_column
 
 
 class TextClassificationUncertaintyPipeline(transformers.pipelines.Pipeline):
