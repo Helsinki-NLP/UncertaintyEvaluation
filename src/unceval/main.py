@@ -7,6 +7,8 @@ import click
 import evaluate
 import datasets
 
+from unceval import utils
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,22 +31,22 @@ def cli(verbosity: int = 0):
 @click.option('--dataset-limit', type=int, default=None, help='limit to N first data samples')
 @click.option('--dataset-column', type=str, default=REFERENCE_COLUMN,
               help='dataset column for reference label distribution')
+@click.option('--dataset-collapse', 'dataset_collapse', nargs=2, type=str,
+              help=('collapse row-per-annotation dataset for label distribution; '
+                    'the arguments are columns for sample identifier and label'))
 @click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
 @click.option('--batch-size', type=int, default=10, help='batch size')
 @click.option('--num-predictions', type=int, default=10,
               help='requested number of predictions per sample (may be resticted by the model)')
 def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
-                           dataset_column, batch_size, num_predictions):
+                           dataset_column, dataset_collapse, batch_size, num_predictions):
     # Dynamic imports
     transformers = importlib.import_module("transformers")
     text_classification = importlib.import_module("..text_classification", package=__name__)
 
     dataset = datasets.load_dataset(dataset_path, split=dataset_split)
-    if dataset_limit:
-        dataset = dataset.select(range(dataset_limit))
-    logger.info(dataset)
-    if dataset_column not in dataset.features:
-        raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
+    logger.info("Original dataset: %s", dataset)
+
     if "premise" in dataset.features and "hypothesis" in dataset.features:
         logger.info("NLI task detected")
         input_column = "premise"
@@ -55,14 +57,33 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
         second_input_column = None
     else:
         raise ValueError(f"Could not determine task from the dataset features {dataset.features}")
+
+    if dataset_collapse:
+        logger.info("Converting dataset to row per unique value of %s", dataset_collapse[0])
+        dataset, label_indices = utils.collapse_dataset(
+            dataset, input_column, second_input_column, id_column=dataset_collapse[0],
+            label_column=dataset_collapse[1], label_dist_column=dataset_column)
+        logger.info("Label indices: %s", label_indices)
+
+    if dataset_limit:
+        dataset = dataset.select(range(dataset_limit))
+
+    logger.info("Dataset: %s", dataset)
+
+    if dataset_column not in dataset.features:
+        raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
     num_labels = len(dataset[dataset_column][0])
     logger.info("Number of labels detected: %s", num_labels)
 
     metrics = [evaluate.load(metric) for metric in metrics]
-    logger.info("Metrics: %s", [metric.name for metric in metrics])
+    if metrics:
+        logger.info("Metrics: %s", [metric.name for metric in metrics])
+    else:
+        logger.warning("No metrics set!")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(model_path, num_labels=num_labels)
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(
+        model_path, num_labels=num_labels)
 
     pipe = text_classification.TextClassificationUncertaintyPipeline(
         model=model, tokenizer=tokenizer, task='text-classification',
