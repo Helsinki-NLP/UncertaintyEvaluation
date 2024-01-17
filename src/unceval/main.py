@@ -22,6 +22,81 @@ def cli(verbosity: int = 0):
     logging.basicConfig(level=level)
 
 
+@cli.command('uz-text-classifier')
+@click.argument('model_path', required=True, type=str)
+@click.argument('dataset_path', required=True, type=str)
+@click.option('--dataset-split', type=str, default='test', help='dataset split to use')
+@click.option('--dataset-limit', type=int, default=None, help='limit to N first data samples')
+@click.option('--dataset-column', type=str, default=REFERENCE_COLUMN,
+              help='dataset column for reference label distribution')
+@click.option('--dataset-collapse', 'dataset_collapse', nargs=2, type=str, default=(None, None),
+              help=('collapse row-per-annotation dataset for label distribution; '
+                    'the arguments are columns for sample identifier and label'))
+@click.option('--tokenizer', 'tokenizer_path', type=str, default=None,
+              help='tokenizer path (if different from model path)')
+@click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
+@click.option('--batch-size', type=int, default=10, help='batch size')
+@click.option('--device', type=str, default=None, help='change device for the model')
+@click.option('--num-predictions', type=int, default=10,
+              help='requested number of predictions per sample (may be resticted by the model)')
+def uz_text_classification(model_path, dataset_path, dataset_split, dataset_limit, dataset_column,
+                           dataset_collapse, tokenizer_path, metrics, batch_size, device, num_predictions):
+    """Run text classification task"""
+    # Dynamic imports
+    torch = importlib.import_module("torch")
+    transformers = importlib.import_module("transformers")
+    text_classification = importlib.import_module("..text_classification", package=__name__)
+
+    dataset = datasets.load_dataset(dataset_path, split=dataset_split)
+    logger.info("Original dataset: %s", dataset)
+
+    dataset, input_column, second_input_column = text_classification.prepare_dataset(
+        dataset, dataset_limit, dataset_column, dataset_collapse[0], dataset_collapse[1])
+    logger.info("Dataset: %s", dataset)
+
+    if dataset_column not in dataset.features:
+        raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
+
+    num_labels = len(dataset[dataset_column][0])
+    logger.info("Number of labels detected: %s", num_labels)
+
+    metrics = [evaluate.load(metric) for metric in metrics]
+    if metrics:
+        logger.info("Metrics: %s", [metric.name for metric in metrics])
+    else:
+        logger.warning("No metrics set!")
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path)
+    config = transformers.AutoConfig.from_pretrained(tokenizer_path)
+    if device:
+        device = torch.device(device)
+        model = torch.load(model_path, map_location=device)
+        model.device = device
+    else:
+        model = torch.load(model_path)
+    logger.info(model)
+    logger.info(model.device)
+
+    submodel = model.module
+    setattr(submodel, 'config', config)
+    pipe = text_classification.TextClassificationUncertaintyPipeline(
+        model=submodel, tokenizer=tokenizer, task='text-classification',
+        batch_size=batch_size, num_predictions=num_predictions)
+
+    task_evaluator = text_classification.TextClassificationUncertaintyEvaluator()
+
+    logger.info("Computing and evaluating predictions")
+    eval_results = task_evaluator.compute(
+        model_or_pipeline=pipe,
+        data=dataset,
+        input_column=input_column,
+        second_input_column=second_input_column,
+        label_column=dataset_column,
+        metric=evaluate.combine(metrics),
+    )
+    print(eval_results)
+
+
 @cli.command('hf-text-classifier')
 @click.argument('model_path', required=True, type=str)
 @click.argument('dataset_path', required=True, type=str)
@@ -32,12 +107,14 @@ def cli(verbosity: int = 0):
 @click.option('--dataset-collapse', 'dataset_collapse', nargs=2, type=str, default=(None, None),
               help=('collapse row-per-annotation dataset for label distribution; '
                     'the arguments are columns for sample identifier and label'))
+@click.option('--tokenizer', 'tokenizer_path', type=str, default=None,
+              help='tokenizer path (if different from model path)')
 @click.option('--metric', 'metrics', multiple=True, type=str, help='list of metrics to run')
 @click.option('--batch-size', type=int, default=10, help='batch size')
 @click.option('--num-predictions', type=int, default=10,
               help='requested number of predictions per sample (may be resticted by the model)')
-def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
-                           dataset_column, dataset_collapse, batch_size, num_predictions):
+def hf_text_classification(model_path, dataset_path, dataset_split, dataset_limit, dataset_column,
+                           dataset_collapse, tokenizer_path, metrics, batch_size, num_predictions):
     """Run text classification task"""
     # Dynamic imports
     transformers = importlib.import_module("transformers")
@@ -62,7 +139,7 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
     else:
         logger.warning("No metrics set!")
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path if tokenizer_path else model_path)
     model = transformers.AutoModelForSequenceClassification.from_pretrained(
         model_path, num_labels=num_labels)
 
