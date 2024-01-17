@@ -62,13 +62,18 @@ class TextClassificationUncertaintyPipeline(transformers.pipelines.Pipeline):
         if "use_cache" in inspect.signature(model_forward).parameters.keys():
             model_inputs["use_cache"] = False
         if hasattr(self.model, 'get_logits'):
-            return self.model.get_logits(model_inputs["input_ids"], num_predictions=num_predictions)
+            logits = self.model.get_logits(
+                model_inputs["input_ids"], num_predictions=num_predictions, **model_inputs)
+            if len(logits.shape) == 4:
+                # [batch_size, preds, seq_len, output_size] -> [batch_size, preds, labels]
+                logits = torch.squeeze(logits, 2)
+            return logits
         outputs = self.model(**model_inputs)
         logits = outputs['logits']
         if len(logits.shape) == 2:
             # Expects original shape [batch_size, labels]
-            logits = outputs['logits'].tile((num_predictions, 1, 1))  # [predictions, batch_size, labels]
-            logits = torch.permute(logits, (1, 0, 2))                 # [batch_size, predictions, labels]
+            logits = outputs['logits'].tile((num_predictions, 1, 1))  # [preds, batch_size, labels]
+            logits = torch.permute(logits, (1, 0, 2))                 # [batch_size, preds, labels]
             logger.debug("Transforming logits from %s to %s", outputs['logits'].shape, logits.shape)
         return logits
 
