@@ -67,7 +67,6 @@ def uz_text_classification(model_path, dataset_path, dataset_split, dataset_limi
         logger.warning("No metrics set!")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path)
-    config = transformers.AutoConfig.from_pretrained(tokenizer_path)
     if device:
         device = torch.device(device)
         model = torch.load(model_path, map_location=device)
@@ -78,7 +77,7 @@ def uz_text_classification(model_path, dataset_path, dataset_split, dataset_limi
     logger.info(model.device)
 
     submodel = model.module
-    setattr(submodel, 'config', config)
+    setattr(submodel, 'config', transformers.PretrainedConfig())  # config is required by Pipeline
     pipe = text_classification.TextClassificationUncertaintyPipeline(
         model=submodel, tokenizer=tokenizer, task='text-classification',
         batch_size=batch_size, num_predictions=num_predictions)
