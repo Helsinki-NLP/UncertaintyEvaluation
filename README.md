@@ -32,9 +32,14 @@ chaos-SNLI: 100 annotations, test only
 | MNLI-half | chaos-MNLI | vanilla BERT | 50.28 | 1.02 |
 | MNLI-half | MNLI | vanilla BERT | 76.88 | 0.83 |
 
+##### Baseline Results III (Third-Party Models)
+| Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |
+| ------------- | ------------ | ------ | ------- | ---------------------------- |
+| SNLI | SNLI | textattack/bert-base-uncased-snli | 90.48 | - | 
+
 ##### Evaluation package results
 | Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |
 | ------------- | ------------ | ------ | ------- | ---------------------------- |
-| SNLI | SNLI | Our HF SWAG | 82.26 | 0.79 |
-| SNLI | SNLI | textattack/bert-base-uncased-snli | 4.46 | 6.04 | 
+| SNLI | SNLI\_soft\_annotated | Our HF SWAG | 82.26 | 0.79 |
+| SNLI | SNLI\_soft\_annotated | textattack/bert-base-uncased-snli | 4.46 | 6.04 | 
 | SNLI | chaos-MNLI | Our HF SWAG | 46.15 | 1.52 |
