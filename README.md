@@ -2,18 +2,38 @@
 
 ### Text Classification Task
 
-#### SNLI dataset
-5 annotations for validation and test splits
+#### Datasets
+SNLI: 5 annotations for validation and test splits
+chaos-MNLI: 100 annotations, test only
+chaos-SNLI: 100 annotations, test only
 
-##### Baseline Results from Nodalida Paper
+##### Baseline Results I (Nodalida Paper)
 | Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |
 | ------------- | ------------ | ------ | ------- | ---------------------------- |
-| SNLI | SNLI (5 annotations per test) | vanilla BERT | 90.80 | 0.83 |
-| SNLI | SNLI (5 annotations per test) | SWA | 91.47 | 0.75 |
-| SNLI | SNLI (5 annotations per test) | SWAG | 91.59 | 0.69 |
+| SNLI | SNLI | vanilla BERT | 90.80 | 0.83 |
+| SNLI | SNLI | SWA | 91.47 | 0.75 |
+| SNLI | SNLI | SWAG | 91.59 | 0.69 |
+| MNLI | MNLI-m | vanilla BERT | 86.53 | 0.87 |
+| MNLI | MNLI-m | SWA | 87.60 | 0.80 |
+| MNLI | MNLI-m | SWAG | 87.76 | 0.73 |
+| MNLI | MNLI-mm | vanilla BERT | 86.31 | 0.84 |
+| MNLI | MNLI-mm | SWA | 87.34 | 0.77 |
+| MNLI | MNLI-mm | SWAG | 87.51 | 0.69 |
+| SNLI | MNLI-m | vanilla BERT | 77.31 | 1.13 |
+| SNLI | MNLI-m | SWA | 79.67 | 0.90 |
+| SNLI | MNLI-m | SWAG | 79.33 | 0.80 |
+| SNLI | MNLI-mm | vanilla BERT | 77.40 | 1.12 |
+| SNLI | MNLI-mm | SWA | 79.44 | 0.88 |
+| SNLI | MNLI-mm | SWAG | 79.24 | 0.79 |
+
+##### Baseline Results II (Elaine's Results from Notion.so)
+| Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |
+| ------------- | ------------ | ------ | ------- | ---------------------------- |
+| MNLI-half | chaos-MNLI | vanilla BERT | 50.28 | 1.02 |
+| MNLI-half | MNLI | vanilla BERT | 76.88 | 0.83 |
 
 ##### Evaluation package results (Trained by HF SWAG package)
 | Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |
 | ------------- | ------------ | ------ | ------- | ---------------------------- |
-| SNLI | SNLI (5 annotations per test) | SWAG | 82.26 | 0.79 |
-
+| SNLI | SNLI | SWAG | 82.26 | 0.79 |
+| SNLI | chaos-MNLI | SWAG | 46.15 | 1.52 |
