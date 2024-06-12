@@ -15,5 +15,5 @@
 ##### Evaluation package results (Trained by HF SWAG package)
 | Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |
 | ------------- | ------------ | ------ | ------- | ---------------------------- |
-| SNLI | SNLI (5 annotations per test) | SWAG | 0.82 | 0.79 |
+| SNLI | SNLI (5 annotations per test) | SWAG | 82.26 | 0.79 |
 
