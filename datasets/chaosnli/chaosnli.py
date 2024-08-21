@@ -14,7 +14,13 @@
 # limitations under the License.
 
 # Lint as: python3
-"""ChaosNLI dataset"""
+"""ChaosNLI dataset
+
+Usage:
+
+    from datasets import load_dataset
+    dataset = load_dataset('PATH/TO/MY/SCRIPT.py')
+"""
 
 
 import collections
@@ -38,7 +44,8 @@ _DESCRIPTION = """\
 The ChaosSNLI dataset, which is a dataset with 100 annotations per example (a total of 4,645 * 100 annotations) for some existing data points in the development set of SNLI, MNLI, and Abductive NLI.
 """
 
-_DATA_URL = "https://www.dropbox.com/s/h4j7dqszmpt2679/chaosNLI_v1.0.zip"
+#_DATA_URL = "https://www.dropbox.com/s/h4j7dqszmpt2679/chaosNLI_v1.0.zip?dl=1"
+_DATA_URL = "https://www.dropbox.com/scl/fi/06nj75xq9djj5g72tzbmp/chaosNLI_v1.0.zip?rlkey=ihbteiy7nmgn79xplz9oicmj5&dl=1"
 
 
 class Chaosnli(datasets.GeneratorBasedBuilder):
@@ -85,13 +92,9 @@ class Chaosnli(datasets.GeneratorBasedBuilder):
         )
 
     def _split_generators(self, dl_manager):
-        dl_manager.download_config.num_proc = 1
+        dl_manager.download_config.force_download = True
         dl_dir = dl_manager.download_and_extract(_DATA_URL)
         data_dir = os.path.join(dl_dir, "chaosNLI_v1.0")
-        data_dir = dl_dir
-        print(data_dir)
-        #import sys
-        #sys.exit(1)
         return [
             datasets.SplitGenerator(
                 name="chaosNLI_snli", gen_kwargs={"filepath": os.path.join(data_dir, "chaosNLI_snli.jsonl")}
