@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Lint as: python3
-"""ChaosNLI dataset
+"""ChaosNLI dataset - SNLI and MNLI-matched portions
 
 Usage:
 
@@ -24,7 +24,7 @@ Usage:
 
 
 import collections
-import csv
+import json
 import os
 
 import datasets
@@ -41,10 +41,11 @@ _CITATION = """\
 """
 
 _DESCRIPTION = """\
-The ChaosSNLI dataset, which is a dataset with 100 annotations per example (a total of 4,645 * 100 annotations) for some existing data points in the development set of SNLI, MNLI, and Abductive NLI.
+SNLI and MNLI-m portions of the ChaosSNLI dataset, which is a dataset with 100 annotations per example (a total of 4,645 * 100 annotations) for some existing data points in the development set of SNLI, MNLI, and Abductive NLI.
 """
 
-#_DATA_URL = "https://www.dropbox.com/s/h4j7dqszmpt2679/chaosNLI_v1.0.zip?dl=1"
+# Direct link for Dropbox
+# Eventually we wont need this, when the dataset is uplaoded to HF with their own format (arrow)
 _DATA_URL = "https://www.dropbox.com/scl/fi/06nj75xq9djj5g72tzbmp/chaosNLI_v1.0.zip?rlkey=ihbteiy7nmgn79xplz9oicmj5&dl=1"
 
 
@@ -97,21 +98,18 @@ class Chaosnli(datasets.GeneratorBasedBuilder):
         data_dir = os.path.join(dl_dir, "chaosNLI_v1.0")
         return [
             datasets.SplitGenerator(
-                name="chaosNLI_snli", gen_kwargs={"filepath": os.path.join(data_dir, "chaosNLI_snli.jsonl")}
+                name="snli", gen_kwargs={"filepath": os.path.join(data_dir, "chaosNLI_snli.jsonl")}
             ),
             datasets.SplitGenerator(
-                name="chaosNLI_mnli_m", gen_kwargs={"filepath": os.path.join(data_dir, "chaosNLI_mnli_m.jsonl")}
-            ),
-            datasets.SplitGenerator(
-                name="chaosNLI_alphanli", gen_kwargs={"filepath": os.path.join(data_dir, "chaosNLI_alphanli.jsonl")}
+                name="mnli_m", gen_kwargs={"filepath": os.path.join(data_dir, "chaosNLI_mnli_m.jsonl")}
             ),
         ]
 
     def _generate_examples(self, filepath):
         """This function returns the examples in the raw (text) form."""
         with open(filepath, encoding="utf-8") as f:
-            reader = csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE)
-            for idx, row in enumerate(reader):
+            for idx, line in enumerate(f):
+                row = json.loads(line)
                 yield idx, {
                     "premise": row["example"]["premise"],
                     "hypothesis": row["example"]["hypothesis"],
