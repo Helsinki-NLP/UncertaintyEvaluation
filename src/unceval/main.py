@@ -7,6 +7,8 @@ import click
 import evaluate
 import datasets
 
+from .utils import import_object
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +38,24 @@ def cli(verbosity: int = 0):
 @click.option('--batch-size', type=int, default=10, help='batch size')
 @click.option('--num-predictions', type=int, default=10,
               help='requested number of predictions per sample (may be resticted by the model)')
+@click.option('--register-custom', nargs=3, type=str, multiple=True,
+              help=('Register a custom class for auto loaders. The arguments are: '
+                    '<name> <config class path> <model class path>. The paths should start '
+                    'the module and end with the class name. Example: '
+                    '--register-custom my_bert mymodule.MyBertConfig mymodule.MyBertModel'))
 def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
-                           dataset_column, dataset_collapse, batch_size, num_predictions):
+                           dataset_column, dataset_collapse, batch_size, num_predictions,
+                           register_custom):
     """Run text classification task"""
     # Dynamic imports
     transformers = importlib.import_module("transformers")
     text_classification = importlib.import_module("..text_classification", package=__name__)
+
+    for name, cfg_class_path, model_class_path in register_custom:
+        cfg_class = import_object(cfg_class_path)
+        model_class = import_object(model_class_path)
+        transformers.AutoConfig.register(name, cfg_class)
+        transformers.AutoModelForSequenceClassification.register(cfg_class, model_class)
 
     dataset = datasets.load_dataset(dataset_path, split=dataset_split)
     logger.info("Original dataset: %s", dataset)

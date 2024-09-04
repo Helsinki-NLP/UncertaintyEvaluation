@@ -1,9 +1,16 @@
 """Utility functions"""
 
 import collections
+import importlib
 
 import datasets
 import tqdm
+
+
+def import_object(path):
+    """Import class/method from absolute path"""
+    module, name = path.rsplit('.', 1)
+    return getattr(importlib.import_module(module), name)
 
 
 def collapse_dataset(original, input_column, second_input_column, id_column,
