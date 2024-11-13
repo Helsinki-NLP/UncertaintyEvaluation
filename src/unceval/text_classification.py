@@ -44,26 +44,36 @@ def prepare_dataset(dataset, dataset_limit, dataset_column, dataset_id_column=No
 
 class TextClassificationUncertaintyPipeline(transformers.pipelines.Pipeline):
 
-    def _sanitize_parameters(self, num_predictions=None, **tokenizer_kwargs):
+    #FIXME: Make the params into kwargs later
+    def _sanitize_parameters(self, num_predictions=None, cov=None, scale=None, block=None, **tokenizer_kwargs):
         preprocess_params = tokenizer_kwargs
         forward_params = {}
         postprocess_params = {}
         if num_predictions is not None:
             forward_params['num_predictions'] = num_predictions
+            # FIXME: Tidy here
+        if cov is not None:
+            forward_params['cov'] = cov
+        if scale is not None:
+            forward_params['scale'] = scale
+        if block is not None:
+            forward_params['block'] = block
+        #print('sanitize params:', forward_params)
         return preprocess_params, forward_params, postprocess_params
 
     def preprocess(self, input_, **tokenizer_kwargs):
         return transformers.pipelines.TextClassificationPipeline.preprocess(
             self, input_, **tokenizer_kwargs)
 
-    def _forward(self, model_inputs, num_predictions=10):
+    def _forward(self, model_inputs, num_predictions=10, cov=True, scale=0.5, block=False):
         # `XXXForSequenceClassification` models should not use `use_cache=True` even if it's supported
         model_forward = self.model.forward if self.framework == "pt" else self.model.call
         if "use_cache" in inspect.signature(model_forward).parameters.keys():
             model_inputs["use_cache"] = False
         if hasattr(self.model, 'get_logits'):
             input_ids = model_inputs.pop('input_ids')
-            logits = self.model.get_logits(input_ids, num_predictions=num_predictions, **model_inputs)
+            #print(f'getting logits with scale:{scale}, block:{block}, cov:{cov}')
+            logits = self.model.get_logits(input_ids, num_predictions=num_predictions, scale=scale, cov=cov, block=block, **model_inputs)
             if len(logits.shape) == 4:
                 # [batch_size, preds, seq_len, output_size] -> [batch_size, preds, labels]
                 logits = torch.squeeze(logits, 2)

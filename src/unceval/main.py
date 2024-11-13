@@ -2,10 +2,12 @@
 
 import importlib
 import logging
+import random
 
 import click
 import evaluate
 import datasets
+from transformers import TextClassificationPipeline
 
 from .utils import import_object
 
@@ -43,10 +45,19 @@ def cli(verbosity: int = 0):
                     '<name> <config class path> <model class path>. The paths should start '
                     'the module and end with the class name. Example: '
                     '--register-custom my_bert mymodule.MyBertConfig mymodule.MyBertModel'))
+#@click.option("--kwarg", type=(str, float), multiple=True,
+#              help=('model-specific parameters'))   
+@click.option('--method', type=str, default='swag-diag', help='from {swa, swag, swag-block, swag-diag, swag-scale-1, base}')
+@click.option('--seed', type=int, default=491)
 def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dataset_limit,
                            dataset_column, dataset_collapse, batch_size, num_predictions,
-                           register_custom):
+                           register_custom, method, seed):
     """Run text classification task"""
+    logging.basicConfig(level=logging.INFO)
+    
+    # Set random seed
+    random.seed(seed)
+
     # Dynamic imports
     transformers = importlib.import_module("transformers")
     text_classification = importlib.import_module("..text_classification", package=__name__)
@@ -64,8 +75,9 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
         dataset, dataset_limit, dataset_column, dataset_collapse[0], dataset_collapse[1])
     logger.info("Dataset: %s", dataset)
 
-    if dataset_column not in dataset.features:
-        raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
+    #FIXME: Hande: I think this is relevant only for entropy measuring, so need to check if in metrics before this
+    #if dataset_column not in dataset.features:
+    #    raise ValueError(f"Dataset {dataset_path} does not include '{dataset_column}' feature")
 
     num_labels = len(dataset[dataset_column][0])
     logger.info("Number of labels detected: %s", num_labels)
@@ -76,17 +88,56 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
     else:
         logger.warning("No metrics set!")
 
+
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
     model = transformers.AutoModelForSequenceClassification.from_pretrained(
         model_path, num_labels=num_labels)
 
-    pipe = text_classification.TextClassificationUncertaintyPipeline(
-        model=model, tokenizer=tokenizer, task='text-classification',
-        batch_size=batch_size, num_predictions=num_predictions)
+    if method == 'swa':
+        cov = False
+        scale = 0
+        block = False
+    elif method == 'swag':
+        cov = True
+        scale = 0.5
+        block = False
+    elif method == 'swag-scale-1':
+        cov = True
+        scale = 1
+        block = False
+    elif method == 'swag-block':
+        cov = True
+        scale = 0.5
+        block = True
+    elif method == 'swag-diag':
+        cov = False
+        scale = 1.0
+        block = False
 
-    task_evaluator = text_classification.TextClassificationUncertaintyEvaluator()
 
+    print(f'method: {method}, eval parameters: scale: {scale}, cov: {cov}, block: {block}, seed:{seed}')
     logger.info("Computing and evaluating predictions")
+    
+    if method == "base":
+        pipe = TextClassificationPipeline(
+            model=model, tokenizer=tokenizer, task='text-classification',
+            batch_size=batch_size, 
+            )
+
+        task_evaluator = evaluator("text-classification")
+
+    else:
+        pipe = text_classification.TextClassificationUncertaintyPipeline(
+            model=model, tokenizer=tokenizer, task='text-classification',
+            batch_size=batch_size, 
+            num_predictions=num_predictions,
+            cov=cov,
+            scale=scale,
+            block=block
+            )
+
+        task_evaluator = text_classification.TextClassificationUncertaintyEvaluator()
+
     eval_results = task_evaluator.compute(
         model_or_pipeline=pipe,
         data=dataset,
@@ -95,6 +146,8 @@ def hf_text_classification(model_path, dataset_path, metrics, dataset_split, dat
         label_column=dataset_column,
         metric=evaluate.combine(metrics),
     )
+
+
     print(eval_results)
 
 
