@@ -1,11 +1,47 @@
 # UncertaintyEvaluation
 
+## Instructions
+
+This package provides the `unceval` command that has subcommands. The
+subcommand implemented at this point is `hf-text-classifier` for
+evaluating models build with the Hugging Face (HF) transformer models
+for text classification. In addition to the command line interface and
+related code, the package contains some datasets and metrics under the
+respective directories.
+
+Example for evaluating an NLI model with the included SNLI dataset
+using accuracy and cross-entropy:
+```
+unceval hf-text-classifier \
+/path/to/nli_model \
+datasets/snli_annotations \
+--metric metrics/unceval_accuracy \
+--metric metrics/unceval_crossentropy
+```
+
+The models, datasets, and evaluation metrics can be loaded directly
+from HF's respective hubs (`models`, `datasets`, `evaluate`), but note
+that the selected combination has to be compatible. For example, the
+metrics in this repository require that the dataset has a column with
+human label distributions (instead of a single label).
+
+The `--register-custom` option can be used to add support for custom
+model types outside the HF `transformers` library. For example, the SWAG
+transformer extension for BERT from [swag_transformers](https://github.com/Helsinki-NLP/swag_transformers/)
+can be used like this:
+```
+unceval hf-text-classifier \
+--register-custom swag_bert swag_transformers.swag_bert.SwagBertConfig swag_transformers.swag_bert.SwagBertForSequenceClassification \
+[...]
+```
+
+## Results
+
 ### Text Classification Task
 
 #### Datasets
-SNLI: 5 annotations for validation and test splits
-chaos-MNLI: 100 annotations, test only
-chaos-SNLI: 100 annotations, test only
+SNLI: 5 annotations for validation and test splits chaos-MNLI: 100
+annotations, test only chaos-SNLI: 100 annotations, test only
 
 ##### Baseline Results I (Nodalida Paper)
 | Train Dataset | Test Dataset | Method | Acc (%) | Cross-Entropy (lower better) |

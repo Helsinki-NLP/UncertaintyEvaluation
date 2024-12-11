@@ -18,7 +18,7 @@ setuptools.setup(
     use_scm_version=True,
     setup_requires=['setuptools_scm'],
     author="Hande Celikkanat, Sami Virpioja",
-    author_email="hande.celikkanat@helsinki.fi",
+    author_email="sami.virpioja@helsinki.fi",
     description="Evaluation tool for uncertainty-aware language models",
     long_description=long_description,
     long_description_content_type="text/markdown",
